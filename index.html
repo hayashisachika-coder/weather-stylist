@@ -237,7 +237,13 @@
 
         async function startApp() {
             try {
-                const res = await fetch(`${GAS_URL}?city=Tokyo`);
+                // ★修正箇所：オプション設定を追加しました
+                const res = await fetch(`${GAS_URL}?city=Tokyo`, {
+                    method: "GET",
+                    mode: "cors",
+                    redirect: "follow"
+                });
+
                 if (!res.ok) throw new Error("接続エラー");
                 const data = await res.json();
 
@@ -252,14 +258,15 @@
                 const emoji = getEmoji(data.icon);
                 document.getElementById('weather-icon').innerText = emoji;
                 
-                // ★ここで背景色を変更！
                 changeBackground(data.icon);
 
                 document.getElementById('advice-text').innerText = data.advice;
 
             } catch (error) {
                 console.error(error);
-                document.getElementById('advice-text').innerText = "エラー: " + error.message;
+                // エラー内容を画面に出して原因を探りやすくする
+                document.getElementById('advice-text').innerText = 
+                    "読み込み失敗: " + error.message + "\n(iPhoneの設定で「サイト越えトラッキング」をOFFにすると直る場合があります)";
             }
         }
 
