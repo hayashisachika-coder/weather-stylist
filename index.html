@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Weather Stylist</title>
+    <link rel="icon" href="data:,">
+
+    <style>
+        /* --- デザイン設定 --- */
+        body {
+            margin: 0; padding: 0;
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
+            background-color: #eef2f5;
+            display: flex; justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 420px;
+            height: 100%;
+            /* 初期カラー（読み込み後に上書きされます） */
+            background: linear-gradient(180deg, #89f7fe 0%, #66a6ff 100%);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+            transition: background 1.0s ease; /* ★色がふわっと変わるアニメーション */
+        }
+
+        /* 上半分：天気エリア */
+        .weather-section {
+            flex: 1.5; 
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding-top: 10px;
+        }
+
+        .date-display {
+            font-size: 14px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.95);
+            margin-bottom: 5px;
+            background: rgba(0,0,0,0.2); /* 背景を少し濃くして文字を見やすく */
+            padding: 4px 12px;
+            border-radius: 15px;
+        }
+
+        .weather-icon {
+            font-size: 90px;
+            margin: 0;
+            margin-bottom: 10px; 
+            line-height: 1.2;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+            z-index: 2;
+        }
+
+        .weather-desc-text {
+            font-size: 22px;
+            font-weight: bold;
+            color: #fff;
+            margin-top: 0;
+            margin-bottom: 5px;
+            text-shadow: 0 1px 5px rgba(0,0,0,0.3); /* 影を強くしてどの背景でも読めるように */
+            z-index: 1;
+        }
+
+        .temperature {
+            font-size: 64px;
+            font-weight: bold;
+            color: #fff;
+            line-height: 1;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 15px rgba(0,0,0,0.2);
+            font-feature-settings: "palt";
+        }
+
+        .weather-details {
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            gap: 15px;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 10px;
+            margin-bottom: 40px; 
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .weather-details span {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        /* 下半分：アドバイスエリア */
+        .advice-card {
+            flex: 2.5;
+            width: 100%;
+            background-color: #ffffff;
+            border-radius: 30px 30px 0 0;
+            padding: 25px 25px 40px 25px;
+            box-sizing: border-box;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #333;
+            flex-shrink: 0;
+        }
+
+        .advice-text {
+            font-size: 16px;
+            line-height: 1.8;
+            color: #444;
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container" id="app-bg">
+        <div class="weather-section">
+            <div class="date-display" id="date-area">--月--日</div>
+            <div class="weather-icon" id="weather-icon">🤔</div>
+            <div class="weather-desc-text" id="weather-desc">...</div>
+            <div class="temperature" id="temp-display">--℃</div>
+            <div class="weather-details">
+                <span id="max-temp">最高:--℃</span>
+                <span id="min-temp">最低:--℃</span>
+                <span id="humidity">💧--%</span>
+            </div>
+        </div>
+
+        <div class="advice-card">
+            <div class="card-title">
+                👕 今日のコーデ提案
+            </div>
+            <div class="advice-text" id="advice-text">
+                読み込み中...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // GAS URL
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzatY9Wut61m80qjZqYLM2AHt04xKmGaRo1dOwk3zonVBd5hec5GbCuWKf6wbxbX3jx/exec"; 
+        // ==========================================
+
+        function updateDate() {
+            const now = new Date();
+            const days = ['日', '月', '火', '水', '木', '金', '土'];
+            document.getElementById('date-area').innerText = 
+                `${now.getMonth() + 1}月${now.getDate()}日 (${days[now.getDay()]})`;
+        }
+        updateDate();
+
+        function getEmoji(iconCode) {
+            const map = {
+                '01d': '☀️', '01n': '🌙', 
+                '02d': '🌤️', '02n': '☁️', 
+                '03d': '☁️', '03n': '☁️', 
+                '04d': '☁️', '04n': '☁️', 
+                '09d': '☔', '09n': '☔', 
+                '10d': '☔', '10n': '☔', 
+                '11d': '⚡', '11n': '⚡', 
+                '13d': '⛄', '13n': '⛄', 
+                '50d': '🌫️', '50n': '🌫️'  
+            };
+            return map[iconCode] || '🤔';
+        }
+
+        // ★追加機能：天気に合わせて背景色を変える関数
+        function changeBackground(iconCode) {
+            const bgElement = document.getElementById('app-bg');
+            let gradient = "";
+
+            // アイコンコードの末尾 (d=昼, n=夜) と 先頭2文字(天気種別) で判定
+            const isNight = iconCode.includes('n');
+            const type = iconCode.substring(0, 2);
+
+            if (isNight) {
+                // 夜の場合のカラーパレット
+                if (type === '01' || type === '02') {
+                    // 晴れ・薄曇りの夜：深いネイビー（星空イメージ）
+                    gradient = "linear-gradient(180deg, #0F2027 0%, #203A43 50%, #2C5364 100%)";
+                } else if (['09', '10', '11'].includes(type)) {
+                    // 雨・雷の夜：暗い紫グレー
+                    gradient = "linear-gradient(180deg, #232526 0%, #414345 100%)";
+                } else {
+                    // 曇りなどの夜：ダークグレー
+                    gradient = "linear-gradient(180deg, #3a3d40 0%, #181719 100%)";
+                }
+            } else {
+                // 昼の場合のカラーパレット
+                if (type === '01') {
+                    // 快晴：鮮やかな青空
+                    gradient = "linear-gradient(180deg, #2980B9 0%, #6DD5FA 100%)"; // または今の #89f7fe系
+                } else if (type === '02' || type === '03' || type === '04') {
+                    // 曇り：落ち着いたブルーグレー
+                    gradient = "linear-gradient(180deg, #8e9eab 0%, #eef2f3 100%)";
+                } else if (['09', '10', '11'].includes(type)) {
+                    // 雨：どんよりした深い青
+                    gradient = "linear-gradient(180deg, #4b6cb7 0%, #182848 100%)";
+                } else if (type === '13') {
+                    // 雪：氷のような白銀
+                    gradient = "linear-gradient(180deg, #E0EAFC 0%, #CFDEF3 100%)";
+                } else {
+                    // その他（霧など）：デフォルトの青
+                    gradient = "linear-gradient(180deg, #89f7fe 0%, #66a6ff 100%)";
+                }
+            }
+
+            // 背景を適用
+            bgElement.style.background = gradient;
+        }
+
+        async function startApp() {
+            try {
+                const res = await fetch(`${GAS_URL}?city=Tokyo`);
+                if (!res.ok) throw new Error("接続エラー");
+                const data = await res.json();
+
+                if (data.error) throw new Error(data.error);
+
+                document.getElementById('temp-display').innerText = `${data.temp}℃`;
+                document.getElementById('weather-desc').innerText = data.weatherDesc;
+                document.getElementById('max-temp').innerText = `最高:${data.max}℃`;
+                document.getElementById('min-temp').innerText = `最低:${data.min}℃`;
+                document.getElementById('humidity').innerText = `💧${data.humidity}%`;
+                
+                const emoji = getEmoji(data.icon);
+                document.getElementById('weather-icon').innerText = emoji;
+                
+                // ★ここで背景色を変更！
+                changeBackground(data.icon);
+
+                document.getElementById('advice-text').innerText = data.advice;
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('advice-text').innerText = "エラー: " + error.message;
+            }
+        }
+
+        startApp();
+    </script>
+</body>
+</html>
